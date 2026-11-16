@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.helpers.device_info import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import Module
@@ -25,7 +25,7 @@ class Ics2000Entity(CoordinatorEntity[Ics2000Coordinator]):
             name=module.name,
             manufacturer="KlikAanKlikUit",
             model=self.dtype.model,
-            via_device=(DOMAIN, mac),
+            via_device_id=coordinator.hub_device_id,
         )
 
     def _func(self, index: int | None) -> int | None:

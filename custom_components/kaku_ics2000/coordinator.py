@@ -39,6 +39,7 @@ class Ics2000Coordinator(DataUpdateCoordinator[dict[int, list[int]]]):
         # After a command the cloud status lags a few seconds behind; keep our
         # optimistic value until then so the UI doesn't flip back and forth.
         self._hold_until: dict[int, float] = {}
+        self.hub_device_id: str | None = None
 
     @property
     def tries(self) -> int:

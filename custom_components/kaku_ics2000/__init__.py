@@ -60,7 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: Ics2000ConfigEntry) -> b
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 
-    dr.async_get(hass).async_get_or_create(
+    hub = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, client.mac)},
         connections={(dr.CONNECTION_NETWORK_MAC, ":".join(client.mac[i:i + 2] for i in range(0, 12, 2)))},
@@ -68,6 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: Ics2000ConfigEntry) -> b
         model="ICS-2000",
         name=entry.title,
     )
+    coordinator.hub_device_id = hub.id
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
