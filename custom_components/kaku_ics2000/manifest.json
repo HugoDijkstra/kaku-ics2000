@@ -1,0 +1,20 @@
+{
+  "domain": "kaku_ics2000",
+  "name": "KlikAanKlikUit ICS-2000",
+  "codeowners": [
+    "@HugoDijkstra"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "network"
+  ],
+  "documentation": "https://github.com/HugoDijkstra/kaku-ics2000",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/HugoDijkstra/kaku-ics2000/issues",
+  "loggers": [
+    "custom_components.kaku_ics2000"
+  ],
+  "requirements": [],
+  "version": "0.1.0"
+}

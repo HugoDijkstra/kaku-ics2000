@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KlikAanKlikUit ICS-2000",
+        "description": "Log in with the account you use in the KlikAanKlikUit app.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "home": {
+        "title": "Choose home",
+        "data": {
+          "home_id": "Home"
+        }
+      },
+      "host": {
+        "title": "Hub address",
+        "description": "The ICS-2000 (MAC {mac}) was not found on the network. Enter its IP address for local control, or leave empty to switch via the cloud only.",
+        "data": {
+          "host": "IP address"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Log in again",
+        "description": "Enter the KlikAanKlikUit password for {email}.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Wrong email address or password.",
+      "cannot_connect": "Could not reach the KlikAanKlikUit cloud.",
+      "no_homes": "No ICS-2000 found in this account."
+    },
+    "abort": {
+      "already_configured": "This ICS-2000 is already set up.",
+      "reauth_successful": "Logged in again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ICS-2000 options",
+        "data": {
+          "scan_interval": "Status refresh interval (seconds)",
+          "tries": "Send attempts per command"
+        }
+      }
+    }
+  }
+}
