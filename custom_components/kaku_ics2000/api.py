@@ -27,6 +27,7 @@ from .const import API_URL, HUB_PORT
 _LOGGER = logging.getLogger(__name__)
 
 _MAGIC = 653213
+REPEAT_DELAY = 0.6  # seconds between repeated LAN sends
 _DISCOVERY_FRAME = bytes.fromhex(
     "010003ffffffffffffca000000010400044795000401040004000400040000000000000000020000003000"
 )
@@ -122,7 +123,7 @@ class Ics2000Client:
         self.mac = normalize_mac(mac) if mac else None
         self.aes_key = aes_key
         self.host = host
-        self._lock = asyncio.Lock()  # the hub dislikes parallel UDP commands
+        self._repeats: dict[tuple[int, int], asyncio.Task[None]] = {}
 
     # ------------------------------------------------------------- cloud API
     async def _post(self, path: str, data: dict[str, str]) -> Any:
@@ -224,47 +225,50 @@ class Ics2000Client:
 
     # --------------------------------------------------------------- commands
     async def set_function(self, device_id: int, function: int, value: int, tries: int = 1) -> None:
-        """Send a command: LAN first, cloud as fallback."""
+        """Send a command and return immediately.
+
+        The hub executes LAN commands but never answers them, so we don't wait
+        for a reply. Extra ``tries`` are re-sent in the background a little
+        later (433 MHz RF is lossy; repeating an on/off/dim is harmless).
+        Without a LAN address, or if the LAN send itself fails, the cloud is used.
+        """
         frame = build_command(self.mac, self.aes_key, device_id, function, value)
-        async with self._lock:
-            last_err: Exception | None = None
-            for attempt in range(max(1, tries)):
-                if self.host:
+        if self.host:
+            try:
+                self._send_udp(frame)
+            except OSError as err:
+                _LOGGER.debug("LAN send to %s failed, using cloud: %s", self.host, err)
+            else:
+                if tries > 1:
+                    self._schedule_repeats(device_id, function, frame, tries - 1)
+                return
+        await self._send_cloud(frame)
+
+    def _schedule_repeats(self, device_id: int, function: int, frame: bytes, count: int) -> None:
+        key = (device_id, function)
+        if (old := self._repeats.pop(key, None)) is not None:
+            old.cancel()  # a newer command for the same function wins
+
+        async def _repeat() -> None:
+            try:
+                for _ in range(count):
+                    await asyncio.sleep(REPEAT_DELAY)
                     try:
-                        await self._send_udp(frame)
+                        self._send_udp(frame)
+                    except OSError:
                         return
-                    except (OSError, asyncio.TimeoutError) as err:
-                        last_err = err
-                        _LOGGER.debug("LAN command to %s failed (try %s): %s", self.host, attempt + 1, err)
-                try:
-                    await self._send_cloud(frame)
-                    return
-                except Ics2000Error as err:
-                    last_err = err
-                await asyncio.sleep(1)
-            raise Ics2000ConnectionError(f"command failed: {last_err}")
+            finally:
+                if self._repeats.get(key) is task:
+                    del self._repeats[key]
 
-    async def _send_udp(self, frame: bytes, timeout: float = 3.0) -> None:
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future[bytes] = loop.create_future()
+        task = asyncio.get_running_loop().create_task(_repeat())
+        self._repeats[key] = task
 
-        class _Proto(asyncio.DatagramProtocol):
-            def datagram_received(self, data: bytes, addr: Any) -> None:
-                if not fut.done():
-                    fut.set_result(data)
-
-            def error_received(self, exc: Exception) -> None:
-                if not fut.done():
-                    fut.set_exception(exc)
-
-        transport, _ = await loop.create_datagram_endpoint(
-            _Proto, remote_addr=(self.host, HUB_PORT)
-        )
-        try:
-            transport.sendto(frame)
-            await asyncio.wait_for(fut, timeout)
-        finally:
-            transport.close()
+    def _send_udp(self, frame: bytes) -> None:
+        """Fire-and-forget UDP datagram to the hub (non-blocking)."""
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.setblocking(False)
+            sock.sendto(frame, (self.host, HUB_PORT))
 
     async def _send_cloud(self, frame: bytes) -> None:
         params = {**self._auth(), "action": "add", "device_unique_id": "", "command": frame.hex()}

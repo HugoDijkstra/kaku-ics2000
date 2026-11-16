@@ -50,3 +50,30 @@ def test_command_frame_matches_reference():
 
 def test_normalize_mac():
     assert api.normalize_mac("00:12:A3:02:AB:A4") == MAC
+
+
+def test_set_function_does_not_wait_for_reply():
+    """The hub never answers LAN commands: sending must return immediately."""
+    import asyncio
+    import socket
+    import time
+
+    recv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    recv.bind(("127.0.0.1", 0))
+    recv.settimeout(2)
+    port = recv.getsockname()[1]
+
+    async def run():
+        client = api.Ics2000Client(None, "e", "p", mac=MAC, aes_key=KEY, host="127.0.0.1")
+        api.HUB_PORT = port  # module-level constant used by _send_udp
+        t0 = time.monotonic()
+        await client.set_function(42, 0, 1, tries=2)
+        elapsed = time.monotonic() - t0
+        await asyncio.sleep(api.REPEAT_DELAY + 0.3)  # let the background repeat run
+        return elapsed
+
+    elapsed = asyncio.run(run())
+    assert elapsed < 0.1
+    first, _ = recv.recvfrom(2048)
+    second, _ = recv.recvfrom(2048)
+    assert first == second == api.build_command(MAC, KEY, 42, 0, 1)

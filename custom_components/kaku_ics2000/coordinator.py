@@ -16,7 +16,7 @@ from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DEFAULT_TRIES, CON
 
 _LOGGER = logging.getLogger(__name__)
 
-HOLD_SECONDS = 15
+HOLD_SECONDS = 25
 
 
 class Ics2000Coordinator(DataUpdateCoordinator[dict[int, list[int]]]):
